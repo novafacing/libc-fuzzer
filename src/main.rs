@@ -40,31 +40,23 @@ fn main() {
 
                 /* Query the parse tree for function declarations  */
                 let func_decl_querystr =
-                    concat!("(function_declarator declarator: (_)* parameters: (_)*)");
+                    concat!("(function_declarator (identifier) @name (parameter_list) @parms)");
 
                 let func_decl_query = Query::new(c_language, func_decl_querystr).unwrap();
                 let mut func_decl_query_cursor = QueryCursor::new();
 
                 /* Define a callback that extracts text from the raw string for matches */
 
-                let all_matches = func_decl_query_cursor.matches(
+                let matches = func_decl_query_cursor.matches(
                     &func_decl_query,
                     tree.root_node(),
                     data.as_bytes(),
                 );
 
-                let nodes: Vec<&Node> = all_matches
-                    .flat_map(|query_match| {
-                        query_match
-                            .captures
-                            .iter()
-                            .map(|query_capture| &query_capture.node)
-                    })
-                    .collect();
+                println!("Parsed from {:?}", header.as_ref().unwrap().file_name());
 
-                println!("Parsed {:?}", header.as_ref().unwrap().file_name());
-                for node in nodes {
-                    println!("NODE: {}", node.utf8_text(data.as_bytes()).unwrap());
+                for mtch in matches {
+                    println!("NODE: {:?}", mtch);
                 }
                 break;
             }
