@@ -11,7 +11,7 @@ fn main() -> Result<(), io::Error> {
     println!("cargo:rerun-if-changed=src/main.rs");
 
     /* Build tree-sitter */
-    let tree_sitter_dir: PathBuf = PathBuf::from("tree-sitter-c/src");
+    let tree_sitter_dir: PathBuf = PathBuf::from("third_party/tree-sitter-c/src");
 
     cc::Build::new()
         .include(&tree_sitter_dir)

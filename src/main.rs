@@ -1,10 +1,12 @@
+mod sexp_print;
+
+use sexp::parse;
 use std::fs::{read_dir, read_to_string};
 use std::path::PathBuf;
-use tree_sitter::{Language, Node, Parser, Query, QueryCursor, TreeCursor};
+use tree_sitter::{Language, Node, Parser, Query, QueryCursor};
 
-fn ts_text_callback<'a>(source: &'a str) -> impl Fn(Node) -> &'a [u8] {
-    move |n| &source.as_bytes()[n.byte_range()]
-}
+use crate::sexp_print::sexp_print;
+
 fn main() {
     /* Parse the musl-libc source and obtain function prototypes  */
     extern "C" {
@@ -26,30 +28,46 @@ fn main() {
 
             /* Grab the parse tree from tree-sitter */
             let tree = parser.parse(data.clone(), None).unwrap();
-            // println!("Parsed {:?}", header.as_ref().unwrap().file_name());
+            let name = header.as_ref().unwrap().file_name();
+            println!("Parsed {:?}", name);
             // println!("{}", tree.root_node().to_sexp());
 
-            /* Query the parse tree for function declarations  */
-            let func_decl_querystr = "(function_declarator declarator: \
-                    (identifier) parameters: (parameter_list))";
-            let func_decl_query = Query::new(c_language, func_decl_querystr).unwrap();
-            let mut func_decl_query_cursor = QueryCursor::new();
+            if name.to_string_lossy().contains("malloc.h") {
+                let sexp = parse(&tree.root_node().to_sexp()).unwrap();
+                sexp_print(&sexp, 0);
+                // println!("{}", sexp);
+                // break;
 
-            /* Define a callback that extracts text from the raw string for matches */
+                /* Query the parse tree for function declarations  */
+                let func_decl_querystr =
+                    concat!("(function_declarator declarator: (_)* parameters: (_)*)");
 
-            let all_matches =
-                func_decl_query_cursor.matches(&func_decl_query, tree.root_node(), data.as_bytes());
+                let func_decl_query = Query::new(c_language, func_decl_querystr).unwrap();
+                let mut func_decl_query_cursor = QueryCursor::new();
 
-            let nodes: Vec<&Node> = all_matches
-                .flat_map(|query_match| {
-                    query_match
-                        .captures
-                        .iter()
-                        .map(|query_capture| &query_capture.node)
-                })
-                .collect();
+                /* Define a callback that extracts text from the raw string for matches */
 
-            for node in nodes {}
+                let all_matches = func_decl_query_cursor.matches(
+                    &func_decl_query,
+                    tree.root_node(),
+                    data.as_bytes(),
+                );
+
+                let nodes: Vec<&Node> = all_matches
+                    .flat_map(|query_match| {
+                        query_match
+                            .captures
+                            .iter()
+                            .map(|query_capture| &query_capture.node)
+                    })
+                    .collect();
+
+                println!("Parsed {:?}", header.as_ref().unwrap().file_name());
+                for node in nodes {
+                    println!("NODE: {}", node.utf8_text(data.as_bytes()).unwrap());
+                }
+                break;
+            }
         }
     }
 }
