@@ -17,3 +17,5 @@ libafl = { version = "0.7.1", features = [
 ] }
 tree-sitter = "0.20.6"
 sexp = "1.1.4"
+tui = "0.18.0"
+crossterm = "0.23"

@@ -1,6 +1,16 @@
+use crossterm::event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode};
+use crossterm::execute;
+use crossterm::terminal::{
+    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
+};
 use std::fs::{read_dir, read_to_string};
+use std::io::{stdout, Error};
 use std::path::PathBuf;
 use tree_sitter::{Language, Node, Parser, Query, QueryCursor};
+use tui::backend::CrosstermBackend;
+use tui::layout::{Constraint, Direction, Layout};
+use tui::widgets::{Block, Borders, Widget};
+use tui::Terminal;
 
 struct FunctionDecl {
     ty: String,
@@ -114,7 +124,7 @@ impl FunctionDeclParser {
     }
 }
 
-fn main() {
+fn extract_decls() -> Vec<FunctionDecl> {
     /* Parse the musl-libc source and obtain function prototypes  */
     extern "C" {
         fn tree_sitter_c() -> Language;
@@ -124,6 +134,8 @@ fn main() {
     let mut parser = FunctionDeclParser::new(c_language);
 
     let musl_include_dir: PathBuf = PathBuf::from("musl/install/include");
+
+    let mut decls: Vec<FunctionDecl> = Vec::new();
 
     for header in read_dir(musl_include_dir).unwrap() {
         if header.as_ref().unwrap().path().is_file() {
@@ -136,12 +148,25 @@ fn main() {
 
             /* Grab the parse tree from tree-sitter */
 
-            let funcs = parser.parse(data);
-            for func in funcs {
-                if !func.name.starts_with("_") && !func.ty.starts_with("static") {
-                    println!("{} {}({:?})", func.ty, func.name, func.params)
-                }
-            }
+            decls.extend(parser.parse(data));
         }
     }
+    for func in decls.iter() {
+        if !func.name.starts_with("_") && !func.ty.starts_with("static") {
+            println!("{} {}({:?})", func.ty, func.name, func.params)
+        }
+    }
+
+    decls
+}
+
+fn main() -> Result<(), Error> {
+    let decls = extract_decls();
+    enable_raw_mode()?;
+    let mut stdout = stdout();
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend)?;
+
+    Ok(())
 }
