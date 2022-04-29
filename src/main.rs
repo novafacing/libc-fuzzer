@@ -100,26 +100,29 @@ impl FunctionDeclParser {
 
                 let declaration_nodes = self.find_declaration(&mut declarator_nodes);
 
-                for node in declaration_nodes.iter().rev() {
-                    println!("kind: {}", node.kind());
-                }
-                println!("");
-
-                let mut typedecl: Vec<String> = declaration_nodes
+                let typedecl: Vec<String> = declaration_nodes
                     .iter()
                     .rev()
                     .take_while(|n| -> bool { n.kind() != "function_declarator" })
                     .map(|n| -> String {
-                        String::from_utf8(text.clone().as_bytes()[n.byte_range()].to_vec()).unwrap()
+                        String::from_utf8(
+                            text.clone().as_bytes()
+                                [n.children(&mut tree.walk()).next().unwrap().byte_range()]
+                            .to_vec(),
+                        )
+                        .unwrap()
                     })
                     .collect();
-
-                typedecl.pop();
 
                 let identifier = String::from_utf8(
                     text.clone().as_bytes()[identifier_node.byte_range()].to_vec(),
                 )
                 .unwrap();
+
+                for node in declaration_nodes.iter().rev() {
+                    println!("{} kind: {}", identifier.clone(), node.kind());
+                }
+                println!("");
 
                 let params: Vec<String> = params_node
                     .children(&mut tree.walk())

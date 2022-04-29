@@ -87,4 +87,6 @@ int main() {
     std::cout << *cpp << std::endl;
     uint8_t *u8p = fdp.consume<uint8_t>(8);
     std::cout << u8p << std::endl;
+    uint8_t **u8pp = fdp.pointer<uint8_t *>(u8p);
+    std::cout << *u8pp << std::endl;
 }
