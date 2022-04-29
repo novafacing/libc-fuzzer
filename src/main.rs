@@ -15,18 +15,23 @@ struct Args {
 
 #[derive(Clone)]
 struct FunctionDecl {
-    ty: String,
+    ty: Vec<String>,
     name: String,
     params: Vec<String>,
 }
 
 impl FunctionDecl {
-    pub fn new(ty: String, name: String, params: Vec<String>) -> Self {
+    pub fn new(ty: Vec<String>, name: String, params: Vec<String>) -> Self {
         FunctionDecl { ty, name, params }
     }
 
     pub fn proto(&self) -> String {
-        return format!("{} {}({})", self.ty, self.name, self.params.join(", "));
+        return format!(
+            "{} {}({})",
+            self.ty.join(""),
+            self.name,
+            self.params.join(", ")
+        );
     }
 }
 
@@ -95,18 +100,21 @@ impl FunctionDeclParser {
 
                 let declaration_nodes = self.find_declaration(&mut declarator_nodes);
 
-                let typedecl_start = declaration_nodes.last().unwrap().start_byte();
-                let typedecl_end = declaration_nodes
-                    .first()
-                    .unwrap()
-                    .child_by_field_name("declarator")
-                    .unwrap()
-                    .start_byte();
+                for node in declaration_nodes.iter().rev() {
+                    println!("kind: {}", node.kind());
+                }
+                println!("");
 
-                let typedecl = String::from_utf8(
-                    text.clone().as_bytes()[typedecl_start..typedecl_end].to_vec(),
-                )
-                .unwrap();
+                let mut typedecl: Vec<String> = declaration_nodes
+                    .iter()
+                    .rev()
+                    .take_while(|n| -> bool { n.kind() != "function_declarator" })
+                    .map(|n| -> String {
+                        String::from_utf8(text.clone().as_bytes()[n.byte_range()].to_vec()).unwrap()
+                    })
+                    .collect();
+
+                typedecl.pop();
 
                 let identifier = String::from_utf8(
                     text.clone().as_bytes()[identifier_node.byte_range()].to_vec(),
@@ -157,13 +165,13 @@ fn extract_decls() -> Vec<FunctionDecl> {
                 parser
                     .parse(data)
                     .into_iter()
-                    .filter(|f| !f.name.starts_with("_") && !f.ty.starts_with("static"))
+                    .filter(|f| !f.name.starts_with("_") && !f.ty.join("").starts_with("static"))
                     .into_iter(),
             );
         }
     }
     for func in decls.iter() {
-        debug!("{} {}({:?})", func.ty, func.name, func.params)
+        debug!("{} {}({:?})", func.ty.join(" "), func.name, func.params)
     }
 
     decls
