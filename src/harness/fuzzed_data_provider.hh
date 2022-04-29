@@ -36,7 +36,7 @@ public:
     }
 
     /* char * sequence, null terminated */
-    template <typename T> T *consume_ptr(size_t length) {
+    template <typename T> T *consume(size_t length) {
         if (offset + (length * sizeof(T)) >= size && throw_on_ood) {
             throw FuzzedDataProviderException("Consume: out of data");
         }
