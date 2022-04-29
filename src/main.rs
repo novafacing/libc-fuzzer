@@ -1,17 +1,19 @@
-use crossterm::event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode};
-use crossterm::execute;
-use crossterm::terminal::{
-    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
-};
+use clap::Parser;
+use log::{debug, error, info, warn};
 use std::fs::{read_dir, read_to_string};
-use std::io::{stdout, Error};
+use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
-use tree_sitter::{Language, Node, Parser, Query, QueryCursor};
-use tui::backend::CrosstermBackend;
-use tui::layout::{Constraint, Direction, Layout};
-use tui::widgets::{Block, Borders, Widget};
-use tui::Terminal;
+use tree_sitter::{Language, Node, Parser as TParser, Query, QueryCursor};
 
+// libc fuzzer generator
+#[derive(Parser, Debug)]
+#[clap(author, version, about, long_about = None)]
+struct Args {
+    // List of libc functions to fuzz
+    functions: Vec<String>,
+}
+
+#[derive(Clone)]
 struct FunctionDecl {
     ty: String,
     name: String,
@@ -22,16 +24,20 @@ impl FunctionDecl {
     pub fn new(ty: String, name: String, params: Vec<String>) -> Self {
         FunctionDecl { ty, name, params }
     }
+
+    pub fn proto(&self) -> String {
+        return format!("{} {}({})", self.ty, self.name, self.params.join(", "));
+    }
 }
 
 struct FunctionDeclParser {
     language: Language,
-    parser: Parser,
+    parser: TParser,
 }
 
 impl FunctionDeclParser {
     pub fn new(language: Language) -> Self {
-        let mut parser = Parser::new();
+        let mut parser = TParser::new();
         parser.set_language(language).unwrap();
 
         Self { language, parser }
@@ -144,29 +150,72 @@ fn extract_decls() -> Vec<FunctionDecl> {
                 .expect("Unable to read header file");
 
             let name = header.as_ref().unwrap().file_name();
-            println!("Parsing {:?}", name);
+            debug!("Parsing {:?}", name);
 
-            /* Grab the parse tree from tree-sitter */
-
-            decls.extend(parser.parse(data));
+            /* Filter out functions that aen't public or are unlikely to be exports (simple, by name)  */
+            decls.extend(
+                parser
+                    .parse(data)
+                    .into_iter()
+                    .filter(|f| !f.name.starts_with("_") && !f.ty.starts_with("static"))
+                    .into_iter(),
+            );
         }
     }
     for func in decls.iter() {
-        if !func.name.starts_with("_") && !func.ty.starts_with("static") {
-            println!("{} {}({:?})", func.ty, func.name, func.params)
-        }
+        debug!("{} {}({:?})", func.ty, func.name, func.params)
     }
 
     decls
 }
 
 fn main() -> Result<(), Error> {
+    /* Default to info log level */
+    env_logger::init_from_env(
+        env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+    );
+
+    let args = Args::parse();
+    assert!(!args.functions.is_empty());
     let decls = extract_decls();
-    enable_raw_mode()?;
-    let mut stdout = stdout();
-    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
-    let backend = CrosstermBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
+    info!("Found {} functions.", decls.len());
+
+    let to_fuzz: Vec<FunctionDecl> = decls
+        .into_iter()
+        .filter(|f| -> bool { args.functions.contains(&f.name) })
+        .collect();
+
+    let missing: Vec<String> = args
+        .functions
+        .into_iter()
+        .filter(|f| -> bool {
+            to_fuzz
+                .clone()
+                .into_iter()
+                .filter(|tf| -> bool { tf.name == f.as_str() })
+                .count()
+                == 0
+        })
+        .collect();
+
+    for funcname in missing {
+        warn!(
+            "Missing function {}, not generating a fuzzer for it.",
+            funcname
+        );
+    }
+
+    if to_fuzz.is_empty() {
+        error!("No functions to fuzz!");
+        return Err(Error::new(ErrorKind::Other, "No functions to fuzz!"));
+    }
+
+    for (funcname, proto) in to_fuzz
+        .iter()
+        .map(|f| -> (String, String) { (f.name.clone(), f.proto()) })
+    {
+        info!("Generating fuzzer for {}: {}", funcname, proto);
+    }
 
     Ok(())
 }
