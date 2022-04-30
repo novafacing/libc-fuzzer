@@ -9,9 +9,7 @@ class FuzzedDataProviderException : public std::exception {
 
 public:
     FuzzedDataProviderException(const char *msg) : msg(msg) {}
-    virtual const char *what() const noexcept {
-        return ("FuzzedDataProviderException: " + msg).c_str();
-    }
+    virtual const char *what() const noexcept { return msg.c_str(); }
 };
 
 class FuzzedDataProvider {

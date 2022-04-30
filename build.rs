@@ -8,15 +8,8 @@ use which::which;
 fn main() -> Result<(), io::Error> {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=musl/");
-    println!("cargo:rerun-if-changed=src/main.rs");
-
-    /* Build tree-sitter */
-    let tree_sitter_dir: PathBuf = PathBuf::from("third_party/tree-sitter-c/src");
-
-    cc::Build::new()
-        .include(&tree_sitter_dir)
-        .file(tree_sitter_dir.join("parser.c"))
-        .compile("tree-sitter-c");
+    println!("cargo:rerun-if-changed=src/lib.rs");
+    println!("cargo:rustc-link-arg=-Wl,--allow-multiple-definition");
 
     /* Build musl-libc  */
 
@@ -31,14 +24,24 @@ fn main() -> Result<(), io::Error> {
     let afl_ld_lto =
         which("afl-ld-lto").expect("Ensure `afl-ld-lto` is installed and is found in $PATH!");
 
+    /* Build tree-sitter */
+    let tree_sitter_dir: PathBuf = PathBuf::from("third_party/tree-sitter-c/src");
+
+    cc::Build::new()
+        .include(&tree_sitter_dir)
+        .file(tree_sitter_dir.join("parser.c"))
+        .compile("tree-sitter-c");
+
+    println!("cargo:rustc-link-lib=static=tree-sitter");
+    // println!("cargo:rustc-link-search=native={}", cwd);
+
     /* Delete the existing musl libc directory if one exists */
     if !Path::new(&musl_dir).is_dir() {
         /* Clone a fresh musl libc directory */
         Command::new("git")
             .arg("clone")
-            .arg("-b")
-            .arg("v1.2.3")
-            .arg("git://git.musl-libc.org/musl")
+            .arg("https://github.com/novafacing/libmusl.git")
+            .arg("musl")
             .current_dir(cwd.clone())
             .status()
             .expect("Could not clone musl-libc.");
@@ -51,8 +54,8 @@ fn main() -> Result<(), io::Error> {
             .arg("--disable-shared")
             .env("CC", afl_clang_lto.clone())
             .env("CXX", afl_clangpp_lto.clone())
-            .env("AR", "llvm-ar-13")
-            .env("RANLIB", "llvm-ranlib-13")
+            .env("AR", "llvm-ar-14")
+            .env("RANLIB", "llvm-ranlib-14")
             .env("LD", afl_ld_lto.clone())
             .env("AFL_LLVM_LAF_ALL", "1")
             .env("AFL_USE_ASAN", "1")
@@ -63,8 +66,8 @@ fn main() -> Result<(), io::Error> {
         Command::new("make")
             .env("CC", afl_clang_lto.clone())
             .env("CXX", afl_clangpp_lto.clone())
-            .env("AR", "llvm-ar-13")
-            .env("RANLIB", "llvm-ranlib-13")
+            .env("AR", "llvm-ar-14")
+            .env("RANLIB", "llvm-ranlib-14")
             .env("LD", afl_ld_lto.clone())
             .env("AFL_LLVM_LAF_ALL", "1")
             .env("AFL_USE_ASAN", "1")
