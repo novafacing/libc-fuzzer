@@ -57,8 +57,8 @@ fn main() -> Result<(), io::Error> {
             .env("AR", "llvm-ar-14")
             .env("RANLIB", "llvm-ranlib-14")
             .env("LD", afl_ld_lto.clone())
-            .env("AFL_LLVM_LAF_ALL", "1")
-            .env("AFL_USE_ASAN", "1")
+            // .env("AFL_LLVM_LAF_ALL", "1")
+            // .env("AFL_USE_ASAN", "1")
             .current_dir(musl_dir.clone())
             .status()
             .expect("Couldn't configure musl-libc using afl-clang-lto.");
@@ -69,8 +69,8 @@ fn main() -> Result<(), io::Error> {
             .env("AR", "llvm-ar-14")
             .env("RANLIB", "llvm-ranlib-14")
             .env("LD", afl_ld_lto.clone())
-            .env("AFL_LLVM_LAF_ALL", "1")
-            .env("AFL_USE_ASAN", "1")
+            // .env("AFL_LLVM_LAF_ALL", "1")
+            // .env("AFL_USE_ASAN", "1")
             .current_dir(musl_dir.clone())
             .status()
             .expect("Couldn't build musl-libc using afl-clang-lto.");

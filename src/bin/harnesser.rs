@@ -1,11 +1,12 @@
 /// ::crate-lib-name::path::to::item;
 use ::libc_fuzzer::{extract_decls, FunctionDecl};
 use clap::Parser;
-use libafl_cc::{ClangWrapper, CompilerWrapper};
 use log::{debug, error, info, warn};
 use std::env::current_dir;
 use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
+use std::process::Command;
+use which::which;
 
 // libc fuzzer generator
 #[derive(Parser, Debug)]
@@ -65,32 +66,36 @@ fn main() -> Result<(), Error> {
         info!("Harness code:\n{}", harness.clone());
 
         /* Replicate the musl-clang script for afl-clang-lto++ also */
-        let libc = PathBuf::from("musl/install");
-        let libc_inc = PathBuf::from("musl/install/include");
-        let libc_lib = PathBuf::from("musl/install/lib");
         let cwd = current_dir().unwrap();
+        let libc_lib = cwd.join("musl/install/lib");
         let fdp_hdr_path = cwd.with_file_name("fuzzed_data_provider");
         let mut musl_ld_path = PathBuf::from(cwd.clone());
+        let afl_ld_lto =
+            which("afl-ld-lto").expect("Ensure `afl-ld-lto` is installed and is found in $PATH!");
         musl_ld_path.push("musl/install/bin/ld.musl-clang");
-        let mut cc = ClangWrapper::new();
 
-        if let Some(code) = cc
-            .cpp(true)
-            .silence(true)
-            .from_args(&vec![
-                format!("-I{}", fdp_hdr_path.to_string_lossy().to_string()),
-                format!("-L{}", libc_lib.to_string_lossy().to_string()),
-                "-l:libmusl.a".to_string(),
-                "-Wl,--allow-multiple-definition".to_string(),
-            ])
-            .expect("Failed to parse command line for compiler.")
-            .link_staticlib(&cwd.join("target").join("debug"), "libc_fuzzer")
-            .add_arg("-fsanitize-coverage=trace-pc-guard")
-            .run()
-            .expect("Failed to run compiler wrapper")
-        {
-            std::process::exit(code);
-        }
+        Command::new("afl-clang-lto++")
+            .arg("-I")
+            .arg(fdp_hdr_path.to_string_lossy().to_string())
+            .arg("-L")
+            .arg(libc_lib.to_string_lossy().to_string())
+            .arg("-l:libmusl.a")
+            .arg("-Wl,--allow-multiple-definition")
+            // .arg("-stdlib=libc++")
+            .arg("-fsanitize-coverage=trace-pc-guard")
+            .arg("-L")
+            .arg(&cwd.join("target").join("debug"))
+            .arg("-l:liblibc_fuzzer.a")
+            .arg("-g")
+            .arg("-O3")
+            .arg("-funroll-loops")
+            .arg("-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION=1")
+            .arg("-v")
+            .env("AR", "llvm-ar-14")
+            .env("RANLIB", "llvm-ranlib-14")
+            .current_dir(cwd)
+            .status()
+            .expect("Failed to compile.");
     }
 
     Ok(())
