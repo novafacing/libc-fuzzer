@@ -23,9 +23,13 @@ fn main() -> Result<(), io::Error> {
     let cwd = env::current_dir().unwrap().to_string_lossy().to_string();
     let musl_dir = format!("{}/musl", cwd);
     let musl_output_dir = format!("{}/musl/install", cwd);
-    let afl_clang_lto = which("afl-clang-lto").unwrap();
-    let afl_clangpp_lto = which("afl-clang-lto++").unwrap();
-    let afl_ld_lto = which("afl-ld-lto").unwrap();
+
+    let afl_clang_lto =
+        which("afl-clang-lto").expect("Ensure `afl-clang-lto` is installed and is found in $PATH!");
+    let afl_clangpp_lto = which("afl-clang-lto++")
+        .expect("Ensure `afl-clang-lto++` is installed and is found in $PATH!");
+    let afl_ld_lto =
+        which("afl-ld-lto").expect("Ensure `afl-ld-lto` is installed and is found in $PATH!");
 
     /* Delete the existing musl libc directory if one exists */
     if !Path::new(&musl_dir).is_dir() {
