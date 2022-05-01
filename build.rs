@@ -17,12 +17,13 @@ fn main() -> Result<(), io::Error> {
     let musl_dir = format!("{}/musl", cwd);
     let musl_output_dir = format!("{}/musl/install", cwd);
 
-    let afl_clang_lto =
-        which("afl-clang-lto").expect("Ensure `afl-clang-lto` is installed and is found in $PATH!");
-    let afl_clangpp_lto = which("afl-clang-lto++")
-        .expect("Ensure `afl-clang-lto++` is installed and is found in $PATH!");
-    let afl_ld_lto =
-        which("afl-ld-lto").expect("Ensure `afl-ld-lto` is installed and is found in $PATH!");
+    let afl_clang_fast = which("afl-clang-fast")
+        .expect("Ensure `afl-clang-fast` is installed and is found in $PATH!");
+    let afl_clangpp_fast = which("afl-clang-fast++")
+        .expect("Ensure `afl-clang-fast++` is installed and is found in $PATH!");
+    let afl_ld_fast = which("lld-14").expect("Ensure `lld-14` is installed and is found in $PATH!");
+    let llvm_config_14 = which("llvm-config-14")
+        .expect("Ensure `llvm-config-14` is installed and is found in $PATH");
 
     /* Build tree-sitter */
     let tree_sitter_dir: PathBuf = PathBuf::from("third_party/tree-sitter-c/src");
@@ -40,6 +41,9 @@ fn main() -> Result<(), io::Error> {
         /* Clone a fresh musl libc directory */
         Command::new("git")
             .arg("clone")
+            // .arg("-b")
+            // .arg("v1.2.3")
+            // .arg("git://git.musl-libc.org/musl")
             .arg("https://github.com/novafacing/libmusl.git")
             .arg("musl")
             .current_dir(cwd.clone())
@@ -52,28 +56,30 @@ fn main() -> Result<(), io::Error> {
         Command::new("./configure")
             .arg(&format!("--prefix={}/install", musl_dir.clone()))
             .arg("--disable-shared")
-            .env("CC", afl_clang_lto.clone())
-            .env("CXX", afl_clangpp_lto.clone())
+            .env("LLVM_CONFIG", llvm_config_14.clone())
+            .env("CC", afl_clang_fast.clone())
+            .env("CXX", afl_clangpp_fast.clone())
             .env("AR", "llvm-ar-14")
             .env("RANLIB", "llvm-ranlib-14")
-            .env("LD", afl_ld_lto.clone())
+            .env("LD", afl_ld_fast.clone())
             // .env("AFL_LLVM_LAF_ALL", "1")
             // .env("AFL_USE_ASAN", "1")
             .current_dir(musl_dir.clone())
             .status()
-            .expect("Couldn't configure musl-libc using afl-clang-lto.");
+            .expect("Couldn't configure musl-libc using afl-clang-fast.");
 
         Command::new("make")
-            .env("CC", afl_clang_lto.clone())
-            .env("CXX", afl_clangpp_lto.clone())
+            .env("LLVM_CONFIG", llvm_config_14.clone())
+            .env("CC", afl_clang_fast.clone())
+            .env("CXX", afl_clangpp_fast.clone())
             .env("AR", "llvm-ar-14")
             .env("RANLIB", "llvm-ranlib-14")
-            .env("LD", afl_ld_lto.clone())
+            .env("LD", afl_ld_fast.clone())
             // .env("AFL_LLVM_LAF_ALL", "1")
             // .env("AFL_USE_ASAN", "1")
             .current_dir(musl_dir.clone())
             .status()
-            .expect("Couldn't build musl-libc using afl-clang-lto.");
+            .expect("Couldn't build musl-libc using afl-clang-fast.");
 
         Command::new("make")
             .arg("install")

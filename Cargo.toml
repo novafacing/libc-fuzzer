@@ -27,8 +27,3 @@ env_logger = "0.9.0"
 rust-embed = "6.4.0"
 which = "4.2.5"
 cc = "1.0.73"
-
-
-[lib]
-name = "libc_fuzzer"
-crate-type = ["staticlib", "rlib"]

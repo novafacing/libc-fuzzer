@@ -1,6 +1,5 @@
 #include "fuzzed_data_provider.hh"
 
-#include <cregex>
 #include <iostream>
 
 /* expect (I'll add tests at some point):
@@ -90,4 +89,8 @@ int main() {
     std::cout << u8p << std::endl;
     uint8_t **u8pp = fdp.pointer<uint8_t *>(u8p);
     std::cout << *u8pp << std::endl;
+    uint8_t *data2 = new uint8_t[8];
+    memset(data2, 0x42, 8);
+    FuzzedDataProvider fdp2(data2, 8);
+    uint8_t *u8p2 = fdp2.consume<uint8_t>(9);
 }

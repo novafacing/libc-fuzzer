@@ -1,128 +1,8 @@
-use libafl::bolts::current_nanos;
-use libafl::bolts::rands::StdRand;
-use libafl::bolts::tuples::tuple_list;
-use libafl::corpus::{
-    Corpus, InMemoryCorpus, IndexesLenTimeMinimizerCorpusScheduler, OnDiskCorpus,
-    QueueCorpusScheduler,
-};
-use libafl::events::{setup_restarting_mgr_std, EventConfig, EventRestarter};
-use libafl::executors::{ExitKind, InProcessExecutor, TimeoutExecutor};
-use libafl::feedbacks::{MapFeedbackState, MaxMapFeedback, TimeFeedback, TimeoutFeedback};
-use libafl::inputs::{BytesInput, HasTargetBytes};
-use libafl::monitors::MultiMonitor;
-use libafl::mutators::{havoc_mutations, StdScheduledMutator};
-use libafl::observers::{HitcountsMapObserver, StdMapObserver, TimeObserver};
-use libafl::stages::StdMutationalStage;
-use libafl::state::{HasCorpus, StdState};
-use libafl::{feedback_and_fast, feedback_or, Error, Fuzzer, StdFuzzer};
-use libafl_targets::{libfuzzer_test_one_input, EDGES_MAP, MAX_EDGES_NUM};
 use log::{debug, error, info, warn};
 use rust_embed::RustEmbed;
 use std::fs::{read_dir, read_to_string};
 use std::path::PathBuf;
-use std::time::Duration;
 use tree_sitter::{Language, Node, Parser as TParser, Query, QueryCursor};
-
-/* See https://github.com/epi052/fuzzing-101-solutions/tree/main/exercise-1 */
-#[no_mangle]
-pub fn libafl_main() -> Result<(), Error> {
-    let corpus_dirs = vec![PathBuf::from("./corpus")];
-    let input_corpus = InMemoryCorpus::<BytesInput>::new();
-    let timeouts_corpus =
-        OnDiskCorpus::new(PathBuf::from("./timeouts")).expect("Could not create timeouts corpus");
-
-    let edges = unsafe { &mut EDGES_MAP[0..MAX_EDGES_NUM] };
-    let edges_observer = HitcountsMapObserver::new(StdMapObserver::new("edges", edges));
-    let time_observer = TimeObserver::new("time");
-
-    let feedback_state = MapFeedbackState::with_observer(&edges_observer);
-    let feedback = feedback_or!(
-        MaxMapFeedback::new_tracking(&feedback_state, &edges_observer, true, false),
-        TimeFeedback::new_with_observer(&time_observer)
-    );
-
-    let objective_state = MapFeedbackState::new("timeout_edges", unsafe { EDGES_MAP.len() });
-
-    let objective = feedback_and_fast!(
-        TimeoutFeedback::new(),
-        MaxMapFeedback::new(&objective_state, &edges_observer)
-    );
-
-    let monitor = MultiMonitor::new(|s| {
-        println!("{}", s);
-    });
-
-    let (state, mut mgr) = match setup_restarting_mgr_std(monitor, 1337, EventConfig::AlwaysUnique)
-    {
-        Ok(res) => res,
-        Err(err) => match err {
-            Error::ShuttingDown => {
-                return Ok(());
-            }
-            _ => {
-                panic!("Failed to setup the restarting manager: {}", err);
-            }
-        },
-    };
-
-    let mut state = state.unwrap_or_else(|| {
-        StdState::new(
-            // random number generator with a time-based seed
-            StdRand::with_seed(current_nanos()),
-            input_corpus,
-            timeouts_corpus,
-            tuple_list!(feedback_state, objective_state),
-        )
-    });
-
-    let scheduler = IndexesLenTimeMinimizerCorpusScheduler::new(QueueCorpusScheduler::new());
-
-    let mut fuzzer = StdFuzzer::new(scheduler, feedback, objective);
-
-    let mut harness = |input: &BytesInput| {
-        let target = input.target_bytes();
-        let buffer = target.as_slice();
-        libfuzzer_test_one_input(buffer);
-        ExitKind::Ok
-    };
-
-    let in_proc_executor = InProcessExecutor::new(
-        &mut harness,
-        tuple_list!(edges_observer, time_observer),
-        &mut fuzzer,
-        &mut state,
-        &mut mgr,
-    )
-    .unwrap();
-
-    let timeout = Duration::from_millis(5000);
-
-    let mut executor = TimeoutExecutor::new(in_proc_executor, timeout);
-
-    if state.corpus().count() < 1 {
-        state
-            .load_initial_inputs(&mut fuzzer, &mut executor, &mut mgr, &corpus_dirs)
-            .unwrap_or_else(|err| {
-                panic!(
-                    "Failed to load initial corpus at {:?}: {:?}",
-                    &corpus_dirs, err
-                )
-            });
-        println!("We imported {} inputs from disk.", state.corpus().count());
-    }
-
-    let mutator = StdScheduledMutator::new(havoc_mutations());
-
-    let mut stages = tuple_list!(StdMutationalStage::new(mutator));
-
-    fuzzer
-        .fuzz_loop_for(&mut stages, &mut executor, &mut state, &mut mgr, 10000)
-        .unwrap();
-
-    mgr.on_restart(&mut state).unwrap();
-
-    Ok(())
-}
 
 #[derive(RustEmbed)]
 #[folder = "fuzzed_data_provider"]
@@ -204,10 +84,10 @@ impl FunctionDecl {
             if self.is_input(params.to_vec()) {
                 let mut arraylen = "";
                 if indir_level > 0 {
-                    arraylen = "fdp.consume<size_t>()";
+                    arraylen = "fdp.consume<uint8_t>()";
                 }
                 body += &format!(
-                    "        {} param{} = fdp.consume<{}>({});\n",
+                    "            {} param{} = fdp.consume<{}>({});\n",
                     params.join(" "),
                     i,
                     alloctype.join(" "),
@@ -218,7 +98,7 @@ impl FunctionDecl {
             /* If the type isn't an input, we just allocate space and assume it is an output */
             } else {
                 body += &format!(
-                    "        {} param{} = new {};\n",
+                    "            {} param{} = new {}[1];\n",
                     params.join(" "),
                     i,
                     alloctype.join(" ")
@@ -231,7 +111,7 @@ impl FunctionDecl {
 
         /* Insert the call to the function */
         body += &format!(
-            "        {} rv = {}({});\n",
+            "            {} rv = {}({});\n",
             self.ty.join(" "),
             self.name,
             input_params.join(", ")

@@ -5,20 +5,28 @@
 /* FuzzedDataProvider header library */
 #include <{fdplib}>
 
-extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-    try {
-        /* clang-format off */
-        FuzzedDataProvider fdp(data, size);
+__AFL_FUZZ_INIT();
+
+int main() {
+
+#ifdef __AFL_HAVE_MANUAL_CONTROL
+    __AFL_INIT();
+#endif
+
+    uint8_t *data = (uint8_t *)__AFL_FUZZ_TESTCASE_BUF;
+
+    while (__AFL_LOOP(10000)) {
+        size_t len = (size_t)__AFL_FUZZ_TESTCASE_LEN;
+
+        try {
+            FuzzedDataProvider fdp(data, len);
+            /* clang-format off */
 {body}
-        /* clang-format on */
-    } catch (FuzzedDataProviderException &e) {
-        return 1;
+            /* clang-format on */
+        } catch (FuzzedDataProviderException &e) {
+            continue;
+        }
     }
 
-    return 0;
-}
-
-extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv) {
-    __AFL_FUZZ_INIT();
     return 0;
 }
