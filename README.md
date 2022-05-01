@@ -11,6 +11,24 @@ It uses [`tree-sitter`](https://tree-sitter.github.io/tree-sitter/) to parse sou
 and obtain function declarations, then creates simple harness(es) using
 [`LibAFL`](https://github.com/AFLplusplus/LibAFL).
 
+## Requirements
+
+You will need `cargo` (and by extension, `rustc` and the rust toolchain).
+
+You will also need `AFLplusplus` and LLVM 14.0.
+
+### Install AFLPlusplus
+
+Installing AFLPlusplus is pretty easy by following the documentation
+[here](https://github.com/AFLplusplus/AFLplusplus/blob/stable/docs/INSTALL.md). We don't
+need anything special, following the steps up to `make distrib` should do it. Then, you
+will need to add the path to wherever you installed it to your `$PATH`.
+
+### Install LLVM 14
+
+LLVM has, thankfully, made this much easier in recent years. Follow the instructions
+[here](https://apt.llvm.org/) to install latest (which right now is 14, but in the
+future you may need to follow the instructions that read `sudo ./llvm.sh 14`).
 ## Usage
 
 `build.rs` will take care of most things for you, and `tree-sitter` is provided in
