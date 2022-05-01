@@ -18,16 +18,18 @@ struct Args {
 }
 
 fn main() -> Result<(), Error> {
-    /* Default to info log level */
+    // Default to info log level
     env_logger::init_from_env(
         env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
     );
 
+    // Extract musl libc header declarations
     let args = Args::parse();
     assert!(!args.functions.is_empty());
     let decls = extract_decls();
     info!("Found {} functions.", decls.len());
 
+    // Figure out what functions the user wants to fuzz, which ones are missing, and sanity check
     let to_fuzz: Vec<FunctionDecl> = decls
         .into_iter()
         .filter(|f| -> bool { args.functions.contains(&f.name) })
@@ -58,6 +60,7 @@ fn main() -> Result<(), Error> {
         return Err(Error::new(ErrorKind::Other, "No functions to fuzz!"));
     }
 
+    // Generate harnesses and compile them
     for (funcname, proto, func) in to_fuzz
         .iter()
         .map(|f| -> (String, String, FunctionDecl) { (f.name.clone(), f.proto(), f.clone()) })

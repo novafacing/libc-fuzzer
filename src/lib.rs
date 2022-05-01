@@ -77,6 +77,12 @@ impl FunctionDecl {
         );
     }
 
+    /// Generate the harness CC code to wrap the desired library function
+    ///
+    /// # Arguments
+    ///
+    /// * `tmplfile` The name of the template file to drop the harness body into. This should
+    ///   either be `template.cc` or `template_manual.cc`
     pub fn harness(&self, tmplfile: String) -> String {
         let tmpl = CCAsset::get(&tmplfile).unwrap();
         let tmplfile = std::str::from_utf8(tmpl.data.as_ref()).unwrap();
@@ -197,6 +203,19 @@ impl FunctionDeclParser {
         }
     }
 
+    /// Parse the source file and construct a vector of function declarations that are in the file
+    /// this isn't terribly reliable and makes some assumptions about the code (for example, that
+    /// the declarations aren't totally opaque like in glibc) but finds every libc export that I
+    /// expected to see plus/minus a few out of musl...#todo: improve!
+    ///
+    /// # Arguments
+    ///
+    /// * `text` The raw contents of `sourcefile`
+    /// * `sourcefile` The header source file name
+    ///
+    /// # Returns
+    ///
+    /// * A vector of the function declarations found in the file
     pub fn parse(&mut self, text: String, sourcefile: String) -> Vec<FunctionDecl> {
         let mut rv = Vec::new();
         let tree = self.parser.parse(text.clone(), None).unwrap();
@@ -303,6 +322,8 @@ impl FunctionDeclParser {
     }
 }
 
+/// Top level function to parse through the musl libc source and extract the function
+/// declarations from it
 pub fn extract_decls() -> Vec<FunctionDecl> {
     /* Parse the musl-libc source and obtain function prototypes  */
     #[link(name = "tree-sitter")]
