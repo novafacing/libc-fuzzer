@@ -57,9 +57,9 @@ Basically just `cargo run --bin harnesser [FUNC ...]`, for example:
 
 ```sh
 $ cargo run --bin harnesser regcomp
-[2022-04-30T05:56:20Z INFO  harnesser] Found 1301 functions.
-[2022-04-30T05:56:20Z INFO  harnesser] Generating fuzzer for atoi: int atoi(const char *)
-[2022-04-30T05:56:20Z INFO  harnesser] Harness code:
+[2022-05-01T04:56:35Z INFO  harnesser] Found 1301 functions.
+[2022-05-01T04:56:35Z INFO  harnesser] Generating fuzzer for atoi: int atoi(const char *)
+[2022-05-01T04:56:35Z INFO  harnesser] Harness code:
     #include <cstddef>
     #include <cstdint>
     /* Header file this harness is fuzzing against */
@@ -67,22 +67,39 @@ $ cargo run --bin harnesser regcomp
     /* FuzzedDataProvider header library */
     #include <fuzzed_data_provider.hh>
     
-    extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        try {
-            /* clang-format off */
-            FuzzedDataProvider fdp(data, size);
-            const char * param0 = fdp.consume<const char *>(fdp.consume<size_t>());
-            int rv = atoi(param0);
+    __AFL_FUZZ_INIT();
     
-            /* clang-format on */
-        } catch (FuzzedDataProviderException &e) {
-            return 1;
+    /* Persistent-mode fuzzing ready harness, can't use this to debug the program */
+    int main() {
+    
+    #ifdef __AFL_HAVE_MANUAL_CONTROL
+        __AFL_INIT();
+    #endif
+    
+        uint8_t *data = (uint8_t *)__AFL_FUZZ_TESTCASE_BUF;
+    
+        while (__AFL_LOOP(10000)) {
+            size_t len = (size_t)__AFL_FUZZ_TESTCASE_LEN;
+    
+            try {
+                FuzzedDataProvider fdp(data, len);
+                /* clang-format off */
+                const char * param0 = fdp.consume<char>(fdp.consume<uint8_t>());
+                int rv = atoi(param0);
+    
+                /* clang-format on */
+            } catch (FuzzedDataProviderException &e) {
+                continue;
+            }
         }
     
         return 0;
     }
-[2022-04-30T05:56:20Z INFO  harnesser] Generating fuzzer for regcomp: int regcomp(regex_t *, const char *, int)
-[2022-04-30T05:56:20Z INFO  harnesser] Harness code:
+afl-cc ++3.15a by Michal Zalewski, Laszlo Szekeres, Marc Heuse - mode: LLVM-PCGUARD
+SanitizerCoveragePCGUARD++3.15a
+[+] Instrumented 88 locations with no collisions (non-hardened mode).
+[2022-05-01T04:56:36Z INFO  harnesser] Generating fuzzer for regcomp: int regcomp(regex_t *, const char *, int)
+[2022-05-01T04:56:36Z INFO  harnesser] Harness code:
     #include <cstddef>
     #include <cstdint>
     /* Header file this harness is fuzzing against */
@@ -90,18 +107,32 @@ $ cargo run --bin harnesser regcomp
     /* FuzzedDataProvider header library */
     #include <fuzzed_data_provider.hh>
     
-    extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        try {
-            /* clang-format off */
-            FuzzedDataProvider fdp(data, size);
-            regex_t * param0 = new regex_t;
-            const char * param1 = fdp.consume<const char *>(fdp.consume<size_t>());
-            int param2 = fdp.consume<int>();
-            int rv = regcomp(param0, param1, param2);
+    __AFL_FUZZ_INIT();
     
-            /* clang-format on */
-        } catch (FuzzedDataProviderException &e) {
-            return 1;
+    /* Persistent-mode fuzzing ready harness, can't use this to debug the program */
+    int main() {
+    
+    #ifdef __AFL_HAVE_MANUAL_CONTROL
+        __AFL_INIT();
+    #endif
+    
+        uint8_t *data = (uint8_t *)__AFL_FUZZ_TESTCASE_BUF;
+    
+        while (__AFL_LOOP(10000)) {
+            size_t len = (size_t)__AFL_FUZZ_TESTCASE_LEN;
+    
+            try {
+                FuzzedDataProvider fdp(data, len);
+                /* clang-format off */
+                regex_t * param0 = new regex_t[1];
+                const char * param1 = fdp.consume<char>(fdp.consume<uint8_t>());
+                int param2 = fdp.consume<int>();
+                int rv = regcomp(param0, param1, param2);
+    
+                /* clang-format on */
+            } catch (FuzzedDataProviderException &e) {
+                continue;
+            }
         }
     
         return 0;
