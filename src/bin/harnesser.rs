@@ -63,59 +63,34 @@ fn main() -> Result<(), Error> {
         .map(|f| -> (String, String, FunctionDecl) { (f.name.clone(), f.proto(), f.clone()) })
     {
         info!("Generating fuzzer for {}: {}", funcname, proto);
-        let harness = func.harness();
-        info!("Harness code:\n{}", harness.clone());
+        let fuzz_harness = func.harness("template.cc".to_string());
+        let manual_harness = func.harness("template_manual.cc".to_string());
+        info!("Harness code:\n{}", fuzz_harness.clone());
 
-        write(format!("harness-{}.cc", funcname), harness).expect("Could not write harness file.");
+        write(format!("harness-{}.cc", funcname), fuzz_harness)
+            .expect("Could not write harness file.");
+        write(format!("harness-{}-manual.cc", funcname), manual_harness)
+            .expect("Could not write harness file.");
 
         /* Replicate the musl-clang script for afl-clang-lto++ also */
         let cwd = current_dir().unwrap();
-        let libc_lib = cwd.join("musl/install/lib");
-        let libc_include = cwd.join("musl/install/include");
-        let sysroot = cwd.join("musl/install/");
-        let libgcc_dir = PathBuf::from("/usr/lib/gcc/x86_64-linux-gnu/9/");
         let libcpp_include = PathBuf::from("/usr/lib/llvm-14/include/c++/v1");
         let libcpp_lib = PathBuf::from("/usr/lib/llvm-14/lib");
         let fdp_hdr_path = cwd.join("fuzzed_data_provider");
-        let mut musl_ld_path = PathBuf::from(cwd.clone());
-        let afl_ld_lto =
-            which("afl-ld-lto").expect("Ensure `afl-ld-lto` is installed and is found in $PATH!");
-        musl_ld_path.push("musl/install/bin/ld.musl-clang");
 
         Command::new("afl-clang-fast++")
             .arg("-I")
             .arg(fdp_hdr_path.to_string_lossy().to_string())
-            .arg("-isystem")
-            .arg(libc_include.to_string_lossy().to_string())
-            .arg("-I")
-            .arg(libc_include.to_string_lossy().to_string())
-            .arg("-L")
-            .arg(libc_lib.to_string_lossy().to_string())
             .arg("-I")
             .arg(libcpp_include.to_string_lossy().to_string())
             .arg("-L")
             .arg(libcpp_lib.to_string_lossy().to_string())
-            .arg("-l:libc.a")
-            .arg("-Wl,--allow-multiple-definition")
             .arg("-stdlib=libc++")
             .arg("-D_LIBCPP_PROVIDES_DEFAULT_RUNE_TABLE")
-            .arg("-nostdinc")
-            .arg("-nostartfiles")
             // .arg("--sysroot")
             // .arg(sysroot.to_string_lossy().to_string())
-            .arg("-static-libgcc")
-            .arg("-L")
-            .arg(libgcc_dir.to_string_lossy().to_string())
-            .arg("-v")
-            .arg(format!(
-                "-Wl,--library-path={}",
-                libgcc_dir.to_string_lossy()
-            ))
-            // .arg("-fsanitize=fuzzer")
-            // .arg("-L")
-            // .arg(&cwd.join("target").join("debug"))
-            // .arg("-l:liblibc_fuzzer.a")
             .arg("-g")
+            .arg("-O0")
             // .arg("-O3")
             // .arg("-funroll-loops")
             .arg("-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION=1")
@@ -130,7 +105,38 @@ fn main() -> Result<(), Error> {
                 "CXX",
                 which("clang++-14").expect("clang++-14 is not installed."),
             )
-            .current_dir(cwd)
+            .current_dir(cwd.clone())
+            .status()
+            .expect("Could not compile harness.");
+
+        Command::new("clang++")
+            .arg("-I")
+            .arg(fdp_hdr_path.to_string_lossy().to_string())
+            .arg("-I")
+            .arg(libcpp_include.to_string_lossy().to_string())
+            .arg("-L")
+            .arg(libcpp_lib.to_string_lossy().to_string())
+            .arg("-stdlib=libc++")
+            .arg("-D_LIBCPP_PROVIDES_DEFAULT_RUNE_TABLE")
+            // .arg("--sysroot")
+            // .arg(sysroot.to_string_lossy().to_string())
+            .arg("-g")
+            .arg("-O0")
+            // .arg("-O3")
+            // .arg("-funroll-loops")
+            .arg("-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION=1")
+            .arg("-v")
+            .arg("-o")
+            .arg(format!("fuzzer-{}-manual", funcname))
+            .arg(format!("harness-{}-manual.cc", funcname))
+            .env("AR", "llvm-ar-14")
+            .env("RANLIB", "llvm-ranlib-14")
+            .env("CC", which("clang-14").expect("clang-14 is not installed."))
+            .env(
+                "CXX",
+                which("clang++-14").expect("clang++-14 is not installed."),
+            )
+            .current_dir(cwd.clone())
             .status()
             .expect("Could not compile harness.");
     }

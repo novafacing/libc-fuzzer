@@ -57,7 +57,7 @@ public:
      * @return The consumed value.
      */
     template <typename T> T consume() {
-        if (offset + sizeof(T) >= size && throw_on_ood) {
+        if (offset + sizeof(T) > size && throw_on_ood) {
             throw FuzzedDataProviderException(
                 std::string("Consume: out of data " +
                             std::to_string(offset + sizeof(T)) +
@@ -77,7 +77,7 @@ public:
      * @return A pointer to the array of elements
      */
     template <typename T> T *consume(size_t length) {
-        if (offset + (length * sizeof(T)) >= size && throw_on_ood) {
+        if (offset + (length * sizeof(T)) > size && throw_on_ood) {
             throw FuzzedDataProviderException(
                 std::string("Consume: out of data " +
                             std::to_string(offset + (length * sizeof(T))) +
@@ -88,6 +88,7 @@ public:
         T *rv = new T[length];
         memcpy(rv, data + offset, length * sizeof(T));
 
+        offset += length * sizeof(T);
         return rv;
     }
 
@@ -103,7 +104,7 @@ public:
      */
     template <char> char *consume(size_t length) {
         printf("Consuming string of length %d\n", length);
-        if (offset + (length * sizeof(char)) >= size && throw_on_ood) {
+        if (offset + (length * sizeof(char)) > size && throw_on_ood) {
             throw FuzzedDataProviderException("Consume: out of data");
         }
 
@@ -111,6 +112,7 @@ public:
         memcpy(rv, data + offset, (length - 1) * sizeof(char));
         rv[length - 1] = '\0';
 
+        offset += length * sizeof(char);
         return rv;
     }
 

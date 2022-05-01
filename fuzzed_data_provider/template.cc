@@ -7,6 +7,7 @@
 
 __AFL_FUZZ_INIT();
 
+/* Persistent-mode fuzzing ready harness, can't use this to debug the program */
 int main() {
 
 #ifdef __AFL_HAVE_MANUAL_CONTROL

@@ -8,15 +8,21 @@ use tree_sitter::{Language, Node, Parser as TParser, Query, QueryCursor};
 #[folder = "fuzzed_data_provider"]
 struct CCAsset;
 
+/// FunctionDecl - Function Declaration Information
 #[derive(Clone)]
 pub struct FunctionDecl {
+    /// A list of tokens found in the return type of the function
     pub ty: Vec<String>,
+    /// The name of the function
     pub name: String,
+    /// A list of lists of the tokens found in each parameter to the function
     pub params: Vec<Vec<String>>,
+    /// The source file the declaration was extracted from
     pub sourcefile: String,
 }
 
 impl FunctionDecl {
+    /// Create a new FunctionDecl from its components
     pub fn new(
         ty: Vec<String>,
         name: String,
@@ -31,17 +37,32 @@ impl FunctionDecl {
         }
     }
 
-    /* Check if a type is probably an input...
-     * #TODO: Make this better
-     */
-    fn is_input(&self, params: Vec<String>) -> bool {
-        if params.contains(&"*".to_string()) {
-            return params.contains(&"const".to_string());
+    /// Check if a parameter is "probably" an input parameter
+    /// to distinguish between a pointer passed in that is filled in by the function
+    /// and a pointer passed in that is used by the function as input. Generally for
+    /// libc, `const` indicates an input, but that may not be true for other libraries
+    ///
+    /// # Arguments
+    ///
+    /// * `params` The parameter to check
+    ///
+    /// # Returns
+    ///
+    /// * Whether the parameter is probably used as input to the function and should
+    ///   contain fuzzer data
+    fn is_input(&self, param: Vec<String>) -> bool {
+        if param.contains(&"*".to_string()) {
+            return param.contains(&"const".to_string());
         } else {
             return true;
         }
     }
 
+    /// Construct a human readable string of the function prototype
+    ///
+    /// # Returns
+    ///
+    /// * A human readable string of the function prototype
     pub fn proto(&self) -> String {
         return format!(
             "{} {}({})",
@@ -56,8 +77,8 @@ impl FunctionDecl {
         );
     }
 
-    pub fn harness(&self) -> String {
-        let tmpl = CCAsset::get("template.cc").unwrap();
+    pub fn harness(&self, tmplfile: String) -> String {
+        let tmpl = CCAsset::get(&tmplfile).unwrap();
         let tmplfile = std::str::from_utf8(tmpl.data.as_ref()).unwrap();
         let hdr = self.sourcefile.clone();
         let fdplib = "fuzzed_data_provider.hh";
