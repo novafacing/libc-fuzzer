@@ -1,12 +1,12 @@
 /// ::crate-lib-name::path::to::item;
 use ::libc_fuzzer::{extract_decls, FunctionDecl};
 use clap::Parser;
-use log::{debug, error, info, warn};
+use log::{error, info, warn};
 use std::env::current_dir;
 use std::fs::write;
-use std::io::{Error, ErrorKind, Write};
+use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
+use std::process::Command;
 use which::which;
 
 // libc fuzzer generator

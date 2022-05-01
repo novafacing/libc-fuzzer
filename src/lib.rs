@@ -1,4 +1,4 @@
-use log::{debug, error, info, warn};
+use log::debug;
 use rust_embed::RustEmbed;
 use std::fs::{read_dir, read_to_string};
 use std::path::PathBuf;

@@ -29,6 +29,7 @@ fn main() -> Result<(), io::Error> {
     let tree_sitter_dir: PathBuf = PathBuf::from("third_party/tree-sitter-c/src");
 
     cc::Build::new()
+        .warnings(false)
         .include(&tree_sitter_dir)
         .file(tree_sitter_dir.join("parser.c"))
         .compile("tree-sitter-c");

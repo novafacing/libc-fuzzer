@@ -23,10 +23,14 @@ use std::time::Duration;
 /// Size of coverage map shared between observer and executor
 const MAP_SIZE: usize = 65536;
 
+/// Program to start the LibAFL fuzzer on the generated harness
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
-    function: String,
+    /// The relative path to the program -- if it is in the local directory, be sure that the
+    /// path starts with `./`
+    program: String,
+    /// The relative path to the corpus directory to start with ex `./corpus`
     corpus_dir: String,
 }
 
@@ -37,7 +41,13 @@ struct Args {
 fn main() {
     let args = Args::parse();
 
-    let corpus_dirs = vec![PathBuf::from(args.corpus_dir)];
+    let corpus_dir = PathBuf::from(args.corpus_dir);
+    assert!(
+        corpus_dir.is_dir(),
+        "Corpus directory {} does not exist!",
+        corpus_dir.to_string_lossy()
+    );
+    let corpus_dirs = vec![corpus_dir];
 
     let input_corpus = InMemoryCorpus::<BytesInput>::new();
 
@@ -88,8 +98,14 @@ fn main() {
 
     let mut fuzzer = StdFuzzer::new(scheduler, feedback, objective);
 
+    assert!(
+        PathBuf::from(args.program.clone()).is_file(),
+        "Could not find program {}",
+        args.program.to_string()
+    );
+
     let fork_server = ForkserverExecutor::new(
-        "./fuzzer-atoi".to_string(),
+        args.program,
         // input goes into stdin if no arguments are given
         &[],
         true,
