@@ -56,7 +56,7 @@ OPTIONS:
 Basically just `cargo run --bin harnesser [FUNC ...]`, for example:
 
 ```sh
-$ cargo run --bin harnesser regcomp
+$ cargo run --bin harnesser atoi regcomp
 [2022-05-01T04:56:35Z INFO  harnesser] Found 1301 functions.
 [2022-05-01T04:56:35Z INFO  harnesser] Generating fuzzer for atoi: int atoi(const char *)
 [2022-05-01T04:56:35Z INFO  harnesser] Harness code:
